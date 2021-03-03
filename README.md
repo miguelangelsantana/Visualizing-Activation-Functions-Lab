@@ -18,8 +18,61 @@ For this lab, load the saved model `'chest_xray_all_with_augmentation_data.h5'`.
 
 
 ```python
-# Your code here
+from keras.models import load_model
+model = load_model('chest_xray_all_with_augmentation_data.h5')
+model.summary()
 ```
+
+    Using TensorFlow backend.
+
+
+    WARNING:tensorflow:From //anaconda3/lib/python3.7/site-packages/keras/backend/tensorflow_backend.py:517: The name tf.placeholder is deprecated. Please use tf.compat.v1.placeholder instead.
+    
+    WARNING:tensorflow:From //anaconda3/lib/python3.7/site-packages/keras/backend/tensorflow_backend.py:4138: The name tf.random_uniform is deprecated. Please use tf.random.uniform instead.
+    
+    WARNING:tensorflow:From //anaconda3/lib/python3.7/site-packages/keras/backend/tensorflow_backend.py:3976: The name tf.nn.max_pool is deprecated. Please use tf.nn.max_pool2d instead.
+    
+    WARNING:tensorflow:From //anaconda3/lib/python3.7/site-packages/keras/backend/tensorflow_backend.py:174: The name tf.get_default_session is deprecated. Please use tf.compat.v1.get_default_session instead.
+    
+    WARNING:tensorflow:From //anaconda3/lib/python3.7/site-packages/keras/backend/tensorflow_backend.py:181: The name tf.ConfigProto is deprecated. Please use tf.compat.v1.ConfigProto instead.
+    
+    WARNING:tensorflow:From //anaconda3/lib/python3.7/site-packages/keras/backend/tensorflow_backend.py:186: The name tf.Session is deprecated. Please use tf.compat.v1.Session instead.
+    
+    WARNING:tensorflow:From //anaconda3/lib/python3.7/site-packages/keras/optimizers.py:790: The name tf.train.Optimizer is deprecated. Please use tf.compat.v1.train.Optimizer instead.
+    
+    WARNING:tensorflow:From //anaconda3/lib/python3.7/site-packages/tensorflow/python/ops/nn_impl.py:180: add_dispatch_support.<locals>.wrapper (from tensorflow.python.ops.array_ops) is deprecated and will be removed in a future version.
+    Instructions for updating:
+    Use tf.where in 2.0, which has the same broadcast rule as np.where
+    _________________________________________________________________
+    Layer (type)                 Output Shape              Param #   
+    =================================================================
+    conv2d_1 (Conv2D)            (None, 148, 148, 32)      896       
+    _________________________________________________________________
+    max_pooling2d_1 (MaxPooling2 (None, 74, 74, 32)        0         
+    _________________________________________________________________
+    conv2d_2 (Conv2D)            (None, 72, 72, 64)        18496     
+    _________________________________________________________________
+    max_pooling2d_2 (MaxPooling2 (None, 36, 36, 64)        0         
+    _________________________________________________________________
+    conv2d_3 (Conv2D)            (None, 34, 34, 128)       73856     
+    _________________________________________________________________
+    max_pooling2d_3 (MaxPooling2 (None, 17, 17, 128)       0         
+    _________________________________________________________________
+    conv2d_4 (Conv2D)            (None, 15, 15, 128)       147584    
+    _________________________________________________________________
+    max_pooling2d_4 (MaxPooling2 (None, 7, 7, 128)         0         
+    _________________________________________________________________
+    flatten_1 (Flatten)          (None, 6272)              0         
+    _________________________________________________________________
+    dense_1 (Dense)              (None, 512)               3211776   
+    _________________________________________________________________
+    dense_2 (Dense)              (None, 1)                 513       
+    =================================================================
+    Total params: 3,453,121
+    Trainable params: 3,453,121
+    Non-trainable params: 0
+    _________________________________________________________________
+
 
 ## Load an Image
 
@@ -29,8 +82,20 @@ Load and display the image `'person3_virus_16.jpeg'`.
 
 
 ```python
-# Your code here
+from keras.preprocessing import image
+import matplotlib.image as mpimg
+import matplotlib.pyplot as plt
+%matplotlib inline
+
+filename = 'person3_virus_16.jpeg'
+img = image.load_img(filename, target_size=(150, 150))
+plt.imshow(img)
+plt.show()
 ```
+
+
+![png](index_files/index_3_0.png)
+
 
 ## Transform the Image to a Tensor and Visualize Again
 
@@ -38,8 +103,28 @@ Recall that you should always preprocess images into tensors when using deep lea
 
 
 ```python
-# Your code here
+import numpy as np
+
+img_tensor = image.img_to_array(img)
+img_tensor = np.expand_dims(img_tensor, axis=0)
+
+# Follow the Original Model Preprocessing
+img_tensor /= 255.
+
+# Check tensor shape
+print(img_tensor.shape)
+
+# Preview an image
+plt.imshow(img_tensor[0])
+plt.show()
 ```
+
+    (1, 150, 150, 3)
+
+
+
+![png](index_files/index_5_1.png)
+
 
 ## Plot Feature Maps
 
@@ -49,8 +134,69 @@ To preview the results of the solution code, take a sneek peak at the *Intermedi
 
 
 ```python
-# Your code here
+from keras import models
+import math 
+
+# Extract model layer outputs
+layer_outputs = [layer.output for layer in model.layers[:8]]
+
+# Create a model for displaying the feature maps
+activation_model = models.Model(inputs=model.input, outputs=layer_outputs)
+
+activations = activation_model.predict(img_tensor)
+
+# Extract Layer Names for Labelling
+layer_names = []
+for layer in model.layers[:8]:
+    layer_names.append(layer.name)
+
+total_features = sum([a.shape[-1] for a in activations])
+total_features
+
+n_cols = 16
+n_rows = math.ceil(total_features / n_cols)
+
+
+iteration = 0
+fig , axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(n_cols, n_rows*1.5))
+
+for layer_n, layer_activation in enumerate(activations):
+    n_channels = layer_activation.shape[-1]
+    for ch_idx in range(n_channels):
+        row = iteration // n_cols
+        column = iteration % n_cols
+    
+        ax = axes[row, column]
+
+        channel_image = layer_activation[0,
+                                         :, :,
+                                         ch_idx]
+        # Post-process the feature to make it visually palatable
+        channel_image -= channel_image.mean()
+        channel_image /= channel_image.std()
+        channel_image *= 64
+        channel_image += 128
+        channel_image = np.clip(channel_image, 0, 255).astype('uint8')
+
+        ax.imshow(channel_image, aspect='auto', cmap='viridis')
+        ax.get_xaxis().set_ticks([])
+        ax.get_yaxis().set_ticks([])
+        
+        if ch_idx == 0:
+            ax.set_title(layer_names[layer_n], fontsize=10)
+        iteration += 1
+
+fig.subplots_adjust(hspace=1.25)
+plt.savefig('Intermediate_Activations_Visualized.pdf')
+plt.show()
 ```
+
+    //anaconda3/lib/python3.7/site-packages/ipykernel_launcher.py:41: RuntimeWarning: invalid value encountered in true_divide
+
+
+
+![png](index_files/index_7_1.png)
+
 
 ## Summary
 
